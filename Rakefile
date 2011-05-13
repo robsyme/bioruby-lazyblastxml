@@ -17,8 +17,8 @@ Jeweler::Tasks.new do |gem|
   gem.name = "bio-lazyblastxml"
   gem.homepage = "http://github.com/robsyme/bioruby-lazyblastxml"
   gem.license = "MIT"
-  gem.summary = %Q{TODO: one-line summary of your gem}
-  gem.description = %Q{TODO: longer description of your gem}
+  gem.summary = %Q{A plugin that allows you to parse large blast XML output files lazily, reading only what you need. }
+  gem.description = %Q{This is very scrappy at the moment, and will need to be seriously cleaned up. It does what I need it to do for now. I'll fix it up in the coming weeks. Promise :)}
   gem.email = "rob.syme@gmail.com"
   gem.authors = ["robsyme"]
   # dependencies defined in Gemfile

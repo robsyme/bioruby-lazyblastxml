@@ -1,3 +1,5 @@
+require "libxml"
+
 class Enumerator
   def lazy_select(&block)
     Enumerator.new do |yielder|
