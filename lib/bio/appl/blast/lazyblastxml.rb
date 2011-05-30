@@ -28,27 +28,37 @@ end
 
 module Bio
   class LazyBlast
+    module LazyNodeSelector
+      def find_nodes_named(*names)
+        @nodes.lazy_select{|reader| names.include?(reader.name)}
+      end
+
+      def next_node_named(*names)
+        find_nodes_named(*names).next
+      end
+
+      def next_value_named(*names)
+        next_node_named(*names).read_inner_xml
+      end
+    end
+  end
+end
+
+module Bio
+  class LazyBlast
     class Report
+      include Enumerable
+      include Bio::LazyBlast::LazyNodeSelector
 
       class Iteration
+        include Enumerable
+        include Bio::LazyBlast::LazyNodeSelector
         attr_reader   :statistics
         attr_accessor :num
         attr_accessor :message
         attr_accessor :query_id
         attr_accessor :query_def
         attr_accessor :query_len
-
-        def find_nodes_named(*names)
-          @nodes.lazy_select{|reader| names.include?(reader.name)}
-        end
-
-        def next_node_named(*names)
-          find_nodes_named(*names).next
-        end
-
-        def next_value_named(*names)
-          next_node_named(*names).read_inner_xml
-        end
 
         def setup_hits(xml_reader)
           @reader = xml_reader
@@ -60,40 +70,30 @@ module Bio
           end
         end
 
-        def hits
-          Enumerator.new do |yielder|
-            find_nodes_named("Hit").each do |reader|
-              hit = Hit.new
-              hit.num = next_value_named("Hit_num").to_i
-              hit.hit_id = next_value_named("Hit_id")
-              hit.definition = next_value_named("Hit_def")
-              hit.accession = next_value_named("Hit_accession")
-              hit.len = next_value_named("Hit_len")
-              hit.setup_hsps(@reader)
+        def each
+          find_nodes_named("Hit").each do |reader|
+            hit = Hit.new
+            hit.num = next_value_named("Hit_num").to_i
+            hit.hit_id = next_value_named("Hit_id")
+            hit.definition = next_value_named("Hit_def")
+            hit.accession = next_value_named("Hit_accession")
+            hit.len = next_value_named("Hit_len")
+            hit.setup_hsps(@reader)
 
-              yielder << hit
-            end
+            yield hit
           end
         end
+
+        alias :each_hit :each
         
         class Hit
+          include Enumerable
+          include Bio::LazyBlast::LazyNodeSelector
           attr_accessor :num
           attr_accessor :hit_id
           attr_accessor :len
           attr_accessor :definition
           attr_accessor :accession
-
-          def find_nodes_named(*names)
-            @nodes.lazy_select{|reader| names.include?(reader.name)}
-          end
-
-          def next_node_named(*names)
-            find_nodes_named(*names).next
-          end
-
-          def next_value_named(*names)
-            next_node_named(*names).read_inner_xml
-          end
 
           def setup_hsps(xml_reader)
             @reader = xml_reader
@@ -104,29 +104,28 @@ module Bio
             end
           end
 
-          def hsps
-            Enumerator.new do |yielder|
-              find_nodes_named("Hsp").each do |reader|
-                hsp = Hsp.new
-                hsp.num = next_value_named("Hsp_num").to_i
-                hsp.bit_score = next_value_named("Hsp_bit-score").to_f
-                hsp.evalue = next_value_named("Hsp_evalue").to_f
-                hsp.query_from = next_value_named("Hsp_query-from").to_i
-                hsp.query_to = next_value_named("Hsp_query-to").to_i
-                hsp.hit_from = next_value_named("Hsp_hit-from").to_i
-                hsp.hit_to = next_value_named("Hsp_hit-to").to_i
-                hsp.query_frame = next_value_named("Hsp_query-frame").to_i
-                hsp.hit_frame = next_value_named("Hsp_hit-frame").to_i
-                hsp.identity = next_value_named("Hsp_positive").to_i
-                hsp.align_len = next_value_named("Hsp_align-len").to_i
-                hsp.qseq = next_value_named("Hsp_qseq").to_i
-                hsp.hseq = next_value_named("Hsp_hseq").to_i
-                hsp.midline = next_value_named("Hsp_midline").to_i
-
-                yielder << hsp
-              end
+          def each
+            find_nodes_named("Hsp").each do |reader|
+              hsp = Hsp.new
+              hsp.num = next_value_named("Hsp_num").to_i
+              hsp.bit_score = next_value_named("Hsp_bit-score").to_f
+              hsp.evalue = next_value_named("Hsp_evalue").to_f
+              hsp.query_from = next_value_named("Hsp_query-from").to_i
+              hsp.query_to = next_value_named("Hsp_query-to").to_i
+              hsp.hit_from = next_value_named("Hsp_hit-from").to_i
+              hsp.hit_to = next_value_named("Hsp_hit-to").to_i
+              hsp.query_frame = next_value_named("Hsp_query-frame").to_i
+              hsp.hit_frame = next_value_named("Hsp_hit-frame").to_i
+              hsp.identity = next_value_named("Hsp_positive").to_i
+              hsp.align_len = next_value_named("Hsp_align-len").to_i
+              hsp.qseq = next_value_named("Hsp_qseq").to_i
+              hsp.hseq = next_value_named("Hsp_hseq").to_i
+              hsp.midline = next_value_named("Hsp_midline").to_i
+              yield hsp
             end
           end
+
+          alias :each_hsp :each
           
           class Hsp
             attr_accessor :num
@@ -165,32 +164,20 @@ module Bio
         end
       end
 
-      def find_nodes_named(*names)
-        @nodes.lazy_select{|reader| names.include?(reader.name)}
-      end
+      def each
+        find_nodes_named("Iteration").each do |reader|
+          iteration = Iteration.new
+          iteration.num = next_value_named("Iteration_iter-num").to_i
+          iteration.query_id = next_value_named("Iteration_query-ID")
+          iteration.query_def = next_value_named("Iteration_query-def")
+          iteration.query_len = next_value_named("Iteration_query-len").to_i
+          iteration.setup_hits(@reader)
 
-      def next_node_named(*names)
-        find_nodes_named(*names).next
-      end
-
-      def next_value_named(*names)
-        next_node_named(*names).read_inner_xml
-      end
-
-      def iterations
-        Enumerator.new do |yielder|
-          find_nodes_named("Iteration").each do |reader|
-            iteration = Iteration.new
-            iteration.num = next_value_named("Iteration_iter-num").to_i
-            iteration.query_id = next_value_named("Iteration_query-ID")
-            iteration.query_def = next_value_named("Iteration_query-def")
-            iteration.query_len = next_value_named("Iteration_query-len").to_i
-            iteration.setup_hits(@reader)
-
-            yielder << iteration
-          end
+          yield iteration
         end
       end
+
+      alias :each_iteration :each
       
     end
   end
