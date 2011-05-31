@@ -36,7 +36,16 @@ class TestIteration < MiniTest::Unit::TestCase
   end
 
   def test_iteration_creation
-    assert_kind_of Bio::LazyBlast::Report::Iteration, @iter_1
+    @iteration = @report.first
+    assert_kind_of Bio::LazyBlast::Report::Iteration, @iteration
+    assert_equal 'blastp', @report.program
+    assert_equal 'blastp 2.2.21 [Jun-14-2009]', @report.version
+    assert_equal 'db.fasta', @report.db
+    assert_equal 'BLOSUM62', @report.parameters['matrix']
+    assert_equal 10, @report.parameters['expect']
+    assert_equal 11, @report.parameters['gap-open']
+    assert_equal 1, @report.parameters['gap-extend']
+    assert_equal 'F', @report.parameters['filter']
   end
 
   def test_example_usage

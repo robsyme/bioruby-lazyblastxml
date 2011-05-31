@@ -1,159 +1,10 @@
 require "libxml"
 
-class Enumerator
-  def lazy_select(&block)
-    Enumerator.new do |yielder|
-      self.each do |val|
-        yielder.yield(val) if block.call(val)
-      end
-    end
-  end
-
-  def lazy_reject(&block)
-    Enumerator.new do |yielder|
-      self.each do |val|
-        yielder.yield(val) unless block.call(val)
-      end
-    end
-  end
-
-  def lazy_map(&block)
-    Enumerator.new do |yielder|
-      self.each do |value|
-        yielder.yield(block.call(value))
-      end
-    end
-  end
-end
-
-module Bio
-  class LazyBlast
-    module LazyNodeSelector
-      def find_nodes_named(*names)
-        @nodes.lazy_select{|reader| names.include?(reader.name)}
-      end
-
-      def next_node_named(*names)
-        find_nodes_named(*names).next
-      end
-
-      def next_value_named(*names)
-        next_node_named(*names).read_inner_xml
-      end
-    end
-  end
-end
-
 module Bio
   class LazyBlast
     class Report
       include Enumerable
-      include Bio::LazyBlast::LazyNodeSelector
-
-      class Iteration
-        include Enumerable
-        include Bio::LazyBlast::LazyNodeSelector
-        attr_reader   :statistics
-        attr_accessor :num
-        attr_accessor :message
-        attr_accessor :query_id
-        attr_accessor :query_def
-        attr_accessor :query_len
-
-        def setup_hits(xml_reader)
-          @reader = xml_reader
-          hits_finished = false
-          @nodes = Enumerator.new do |yielder|
-            while @reader.read and !(@reader.name == "Iteration_hits" and @reader.node_type == LibXML::XML::Reader::TYPE_END_ELEMENT) and !(@reader.value == "No hits found")
-              yielder << @reader if @reader.node_type == LibXML::XML::Reader::TYPE_ELEMENT
-            end
-          end
-        end
-
-        def each
-          find_nodes_named("Hit").each do |reader|
-            hit = Hit.new
-            hit.num = next_value_named("Hit_num").to_i
-            hit.hit_id = next_value_named("Hit_id")
-            hit.definition = next_value_named("Hit_def")
-            hit.accession = next_value_named("Hit_accession")
-            hit.len = next_value_named("Hit_len")
-            hit.setup_hsps(@reader)
-
-            yield hit
-          end
-        end
-
-        alias :each_hit :each
-        
-        class Hit
-          include Enumerable
-          include Bio::LazyBlast::LazyNodeSelector
-          attr_accessor :num
-          attr_accessor :hit_id
-          attr_accessor :len
-          attr_accessor :definition
-          attr_accessor :accession
-
-          def setup_hsps(xml_reader)
-            @reader = xml_reader
-            @nodes = Enumerator.new do |yielder|
-              while @reader.read and !(@reader.name == "Hit_hsps" and @reader.node_type == LibXML::XML::Reader::TYPE_END_ELEMENT)
-                yielder << @reader if @reader.node_type == LibXML::XML::Reader::TYPE_ELEMENT
-              end
-            end
-          end
-
-          def each
-            find_nodes_named("Hsp").each do |reader|
-              hsp = Hsp.new
-              hsp.num = next_value_named("Hsp_num").to_i
-              hsp.bit_score = next_value_named("Hsp_bit-score").to_f
-              hsp.evalue = next_value_named("Hsp_evalue").to_f
-              hsp.query_from = next_value_named("Hsp_query-from").to_i
-              hsp.query_to = next_value_named("Hsp_query-to").to_i
-              hsp.hit_from = next_value_named("Hsp_hit-from").to_i
-              hsp.hit_to = next_value_named("Hsp_hit-to").to_i
-              hsp.query_frame = next_value_named("Hsp_query-frame").to_i
-              hsp.hit_frame = next_value_named("Hsp_hit-frame").to_i
-              hsp.identity = next_value_named("Hsp_positive").to_i
-              hsp.align_len = next_value_named("Hsp_align-len").to_i
-              hsp.qseq = next_value_named("Hsp_qseq").to_i
-              hsp.hseq = next_value_named("Hsp_hseq").to_i
-              hsp.midline = next_value_named("Hsp_midline").to_i
-              yield hsp
-            end
-          end
-
-          alias :each_hsp :each
-          
-          class Hsp
-            attr_accessor :num
-            attr_accessor :bit_score
-            attr_accessor :evalue
-            attr_accessor :query_from
-            attr_accessor :query_to
-            attr_accessor :hit_from
-            attr_accessor :hit_to
-            attr_accessor :query_frame
-            attr_accessor :hit_frame
-            attr_accessor :identity
-            attr_accessor :positive
-            attr_accessor :gaps
-            attr_accessor :align_len
-            attr_accessor :density
-            attr_accessor :qseq
-            attr_accessor :hseq
-            attr_accessor :midline
-            attr_accessor :percent_identity
-            attr_accessor :mismatch_count
-          end
-
-        end
-
-      end
-      
-      attr_reader :reader
+      attr_reader :reader, :program, :version, :db, :query_id, :query_def, :query_len, :parameters
 
       def initialize(filename)
         @reader = LibXML::XML::Reader.file(filename)
@@ -162,23 +13,164 @@ module Bio
             yielder << @reader if @reader.node_type == LibXML::XML::Reader::TYPE_ELEMENT
           end
         end
+        setup_report_values
       end
 
-      def each
-        find_nodes_named("Iteration").each do |reader|
-          iteration = Iteration.new
-          iteration.num = next_value_named("Iteration_iter-num").to_i
-          iteration.query_id = next_value_named("Iteration_query-ID")
-          iteration.query_def = next_value_named("Iteration_query-def")
-          iteration.query_len = next_value_named("Iteration_query-len").to_i
-          iteration.setup_hits(@reader)
-
-          yield iteration
+      def setup_report_values
+        @parameters = Hash.new
+        @nodes.each do |node|
+          return node if node.name == "BlastOutput_iterations"
+          case node.name
+          when 'BlastOutput_program'
+            @program = node.read_inner_xml
+          when 'BlastOutput_version'
+            @version = node.read_inner_xml
+          when 'BlastOutput_db'
+            @db = node.read_inner_xml
+          when 'BlastOutput_query-ID'
+            @query_id = node.read_inner_xml
+          when 'BlastOutput_query-def'
+            @query_def = node.read_inner_xml
+          when 'BlastOutput_query-len'
+            @query_len = node.read_inner_xml.to_i
+          when 'Parameters_matrix'
+            @parameters['matrix'] = node.read_inner_xml
+          when 'Parameters_expect'
+            @parameters['expect'] = node.read_inner_xml.to_i
+          when 'Parameters_gap-open'
+            @parameters['gap-open'] = node.read_inner_xml.to_i
+          when 'Parameters_gap-extend'
+            @parameters['gap-extend'] = node.read_inner_xml.to_i
+          when 'Parameters_filter'
+            @parameters['filter'] = node.read_inner_xml
+          end
         end
       end
-
-      alias :each_iteration :each
       
+      def each
+        @nodes.each{|node| yield Iteration.new(node) if node.name == "Iteration"}
+      end
+      alias :each_iteration :each
+
+      class Iteration
+        include Enumerable
+        attr_reader :num, :query_id, :query_def, :query_len, :message, :parameters
+
+        def initialize(reader)
+          @nodes = Enumerator.new do |yielder|
+            until (reader.name == "Iteration" and reader.node_type == LibXML::XML::Reader::TYPE_END_ELEMENT) or !reader.read
+              yielder << reader if reader.node_type == LibXML::XML::Reader::TYPE_ELEMENT
+            end
+          end
+          setup_iteration_values
+        end
+
+        def setup_iteration_values
+          @nodes.each do |node|
+            return node if node.name == 'Iteration_hits'
+            case node.name
+            when 'Iteration_iter-num'
+              @num = node.read_inner_xml.to_i
+            when 'Iteration_query-ID'
+              @query_id = node.read_inner_xml
+            when 'Iteration_query-def'
+              @query_def = node.read_inner_xml
+            when 'Iteration_query-len'
+              @query_len = node.read_inner_xml.to_i
+            when 'Iteration_message'
+              @message = node.read_inner_xml
+            end
+          end
+        end
+
+        def each
+          @nodes.each{|node| yield Hit.new(node) if node.name == "Hit"}
+        end
+        alias :each_hit :each
+        
+        class Hit
+          include Enumerable
+          attr_reader :num, :hit_id, :len, :definition, :accession
+
+          def initialize(reader)
+            @nodes = Enumerator.new do |yielder|
+              until (reader.name == "Hit" and reader.node_type == LibXML::XML::Reader::TYPE_END_ELEMENT) or !reader.read
+                yielder << reader if reader.node_type == LibXML::XML::Reader::TYPE_ELEMENT
+              end
+            end
+            setup_hit_values
+          end
+
+          def setup_hit_values
+            @nodes.each do |node|
+              return node if node.name == 'Hit_hsps'
+              case node.name
+              when 'Hit_num'
+                @num = node.read_inner_xml.to_i
+              when 'Hit_id'
+                @hit_id = node.read_inner_xml.to_i
+              when 'Hit_def'
+                @definition = node.read_inner_xml
+              when 'Hit_accession'
+                @accession = node.read_inner_xml
+              when 'Hit_len'
+                @len = node.read_inner_xml
+              end
+            end
+          end
+          
+          def each
+            @nodes.each{|node| yield Hsp.new(node) if node.name == "Hsp"}
+          end
+          alias :each_hsp :each
+          
+          class Hsp
+            attr_reader :num, :bit_score, :evalue, :query_from, :query_to, :hit_from, :hit_to, :query_frame, :hit_frame, :identity, :positive, :gaps, :align_len, :density, :qseq, :hseq, :midline, :percent_identity, :mismatch_count
+
+            def initialize(reader)
+              @nodes = Enumerator.new do |yielder|
+                until (reader.name == "Hsp" and reader.node_type == LibXML::XML::Reader::TYPE_END_ELEMENT) or !reader.read
+                  yielder << reader if reader.node_type == LibXML::XML::Reader::TYPE_ELEMENT
+                end
+              end
+              setup_hsp_values
+            end
+
+            def setup_hsp_values
+              @nodes.each do |node|
+                case node.name
+                when 'Hsp_num'
+                  @num = node.read_inner_xml.to_i
+                when 'Hsp_bit-score'
+                  @bit_score = node.read_inner_xml.to_f
+                when 'Hsp_evalue'
+                  @evalue = node.read_inner_xml.to_f
+                when 'Hsp_query-from'
+                  @query_from = node.read_inner_xml.to_i
+                when 'Hsp_query-to'
+                  @query_to = node.read_inner_xml.to_i
+                when 'Hsp_query-frame'
+                  @query_frame = node.read_inner_xml.to_i
+                when 'Hsp_hit-frame'
+                  @hit_frame = node.read_inner_xml.to_i
+                when 'Hsp_identity'
+                  @identity = node.read_inner_xml.to_i
+                when 'Hsp_positive'
+                  @positive = node.read_inner_xml.to_i
+                when 'Hsp_align-len'
+                  @align_len = node.read_inner_xml.to_i
+                when 'Hsp_qseq'
+                  @qseq = node.read_inner_xml
+                when 'Hsp_hseq'
+                  @hseq = node.read_inner_xml
+                when 'Hsp_midline'
+                  @midline = node.read_inner_xml
+                end
+              end
+            end
+          end
+        end
+      end
     end
   end
 end
