@@ -41,11 +41,11 @@ class TestIteration < MiniTest::Unit::TestCase
     assert_equal 'blastp', @report.program
     assert_equal 'blastp 2.2.21 [Jun-14-2009]', @report.version
     assert_equal 'db.fasta', @report.db
-    assert_equal 'BLOSUM62', @report.parameters['matrix']
-    assert_equal 10, @report.parameters['expect']
-    assert_equal 11, @report.parameters['gap-open']
-    assert_equal 1, @report.parameters['gap-extend']
-    assert_equal 'F', @report.parameters['filter']
+    assert_equal 'BLOSUM62', @report.statistics['matrix']
+    assert_equal 10, @report.statistics['expect']
+    assert_equal 11, @report.statistics['gap-open']
+    assert_equal 1, @report.statistics['gap-extend']
+    assert_equal 'F', @report.statistics['filter']
   end
 
   def test_example_usage

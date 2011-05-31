@@ -4,7 +4,7 @@ module Bio
   class LazyBlast
     class Report
       include Enumerable
-      attr_reader :reader, :program, :version, :db, :query_id, :query_def, :query_len, :parameters
+      attr_reader :program, :version, :db, :query_id, :query_def, :query_len, :parameters
 
       def initialize(filename)
         @reader = LibXML::XML::Reader.file(filename)
@@ -17,7 +17,7 @@ module Bio
       end
 
       def setup_report_values
-        @parameters = Hash.new
+        @statistics = Hash.new
         @nodes.each do |node|
           return node if node.name == "BlastOutput_iterations"
           case node.name
@@ -34,15 +34,15 @@ module Bio
           when 'BlastOutput_query-len'
             @query_len = node.read_inner_xml.to_i
           when 'Parameters_matrix'
-            @parameters['matrix'] = node.read_inner_xml
+            @statistics['matrix'] = node.read_inner_xml
           when 'Parameters_expect'
-            @parameters['expect'] = node.read_inner_xml.to_i
+            @statistics['expect'] = node.read_inner_xml.to_i
           when 'Parameters_gap-open'
-            @parameters['gap-open'] = node.read_inner_xml.to_i
+            @statistics['gap-open'] = node.read_inner_xml.to_i
           when 'Parameters_gap-extend'
-            @parameters['gap-extend'] = node.read_inner_xml.to_i
+            @statistics['gap-extend'] = node.read_inner_xml.to_i
           when 'Parameters_filter'
-            @parameters['filter'] = node.read_inner_xml
+            @statistics['filter'] = node.read_inner_xml
           end
         end
       end
