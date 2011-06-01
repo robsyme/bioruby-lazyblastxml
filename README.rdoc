@@ -17,6 +17,8 @@ The parsers uses a LibXML::Reader instance to read the XML file one line at a ti
 
 == Example Usage
 
+Each report is an enumerable that yields iterations.
+Each iteration is an enumerable that yields hits (if there are any hits).
 
   require 'bio-lazyblastxml'
   
@@ -28,6 +30,7 @@ The parsers uses a LibXML::Reader instance to read the XML file one line at a ti
     puts [iteration.query_def, iteration.count].join("\t")
   end
 
+Each hit is an enumerable that yields hsps:
 
   require 'bio-lazyblastxml'
   
