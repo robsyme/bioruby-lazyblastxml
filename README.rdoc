@@ -11,6 +11,12 @@ If you're on ubuntu, libxml is most easily installed with:
 
   sudo apt-get install libxml-ruby
 
+And then install the gem with
+
+  gem install bio-lazyblastxml
+  # If you need to be root to install gems, try:
+  sudo gem install bio-lazyblastxml
+
 == Overview
 
 The parsers uses a LibXML::Reader instance to read the XML file one line at a time, keeping very little in memory. You can think of the parser as having a very short memory, only able to recall the object that it happens to be looking at right now. The parser only runs through the document once unless Bio::LazyBlast#rewind is called.
