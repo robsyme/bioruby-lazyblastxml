@@ -4,10 +4,11 @@ module Bio
   class LazyBlast
     class Report
       include Enumerable
-      attr_reader :program, :version, :db, :query_id, :query_def, :query_len, :parameters
+      attr_reader :program, :version, :db, :query_id, :query_def, :query_len, :statistics
 
       def initialize(filename)
-        @reader = LibXML::XML::Reader.file(filename)
+        @filename = filename
+        @reader = LibXML::XML::Reader.file(@filename)
         @nodes = Enumerator.new do |yielder|
           while @reader.read 
             yielder << @reader if @reader.node_type == LibXML::XML::Reader::TYPE_ELEMENT
@@ -19,7 +20,7 @@ module Bio
       def setup_report_values
         @statistics = Hash.new
         @nodes.each do |node|
-          return node if node.name == "BlastOutput_iterations"
+          return if node.name == "BlastOutput_iterations"
           case node.name
           when 'BlastOutput_program'
             @program = node.read_inner_xml
@@ -52,6 +53,16 @@ module Bio
       end
       alias :each_iteration :each
 
+      def rewind
+        @reader.close
+        @reader = LibXML::XML::Reader.file(@filename)
+        @nodes = Enumerator.new do |yielder|
+          while @reader.read 
+            yielder << @reader if @reader.node_type == LibXML::XML::Reader::TYPE_ELEMENT
+          end
+        end
+      end
+
       class Iteration
         include Enumerable
         attr_reader :num, :query_id, :query_def, :query_len, :message, :parameters
@@ -67,7 +78,7 @@ module Bio
 
         def setup_iteration_values
           @nodes.each do |node|
-            return node if node.name == 'Iteration_hits'
+            return if node.name == 'Iteration_hits'
             case node.name
             when 'Iteration_iter-num'
               @num = node.read_inner_xml.to_i
@@ -103,7 +114,7 @@ module Bio
 
           def setup_hit_values
             @nodes.each do |node|
-              return node if node.name == 'Hit_hsps'
+              return if node.name == 'Hit_hsps'
               case node.name
               when 'Hit_num'
                 @num = node.read_inner_xml.to_i

@@ -35,6 +35,13 @@ class TestIteration < MiniTest::Unit::TestCase
     @report = Bio::LazyBlast::Report.new(@blast_filename)
   end
 
+  def test_rewind_ability
+    assert_equal 2, @report.count, "Test report should contain 2 iterations"
+    assert_equal 0, @report.count, "Report should contain no more iterations once the file has been read through"
+    @report.rewind
+    assert_equal 2, @report.count, "Test report should contain 2 iterations once the file has been rewound."
+  end
+
   def test_iteration_creation
     @iteration = @report.first
     assert_kind_of Bio::LazyBlast::Report::Iteration, @iteration
